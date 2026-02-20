@@ -25,7 +25,7 @@ LocaleConfig.locales['zh'] = {
 };
 LocaleConfig.defaultLocale = 'zh';
 
-export default function HomeScreen() {
+export default function HomeScreen({ onNavigate }: { onNavigate: (screen: 'HOME' | 'ANALYSIS') => void }) {
   const { transactions, addTransaction, isLoading } = useTransactions();
   const [modalVisible, setModalVisible] = useState(false);
 
@@ -186,14 +186,25 @@ export default function HomeScreen() {
         }
       />
 
-      {/* Add Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={36} color="#000" />
-      </TouchableOpacity>
+      {/* Bottom Nav */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('HOME')}>
+          <Ionicons name="book" size={24} color="#FF9500" />
+          <Text style={[styles.navLabel, { color: '#FF9500' }]}>帳本</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
+          <View style={styles.addIconBg}>
+            <Ionicons name="add" size={32} color="#FFF" />
+          </View>
+          <Text style={styles.navLabel}>記一筆</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('ANALYSIS')}>
+          <Ionicons name="pie-chart" size={24} color="#888" />
+          <Text style={styles.navLabel}>分析</Text>
+        </TouchableOpacity>
+      </View>
 
       <AddTransactionModal
         visible={modalVisible}
@@ -230,5 +241,15 @@ const styles = StyleSheet.create({
   itemNote: { color: '#666', fontSize: 13, marginTop: 4 },
   emptyContainer: { alignItems: 'center', marginTop: 50 },
   emptyText: { color: '#333', marginTop: 10, fontSize: 14 },
-  fab: { position: 'absolute', right: 25, bottom: 25, width: 65, height: 65, borderRadius: 32.5, backgroundColor: '#FF9500', justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4.65 },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: '#080808',
+    height: 70,
+    borderTopWidth: 0.5,
+    borderTopColor: '#222'
+  },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  addBtn: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', marginTop: -10 },
+  addIconBg: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: '#FF9500', justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
+  navLabel: { fontSize: 10, color: '#888' },
 });
