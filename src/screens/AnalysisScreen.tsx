@@ -24,6 +24,7 @@ export default function AnalysisScreen({ onNavigate }: AnalysisScreenProps) {
   const [periodType, setPeriodType] = useState<'MONTH' | 'YEAR'>('MONTH');
   const [analysisType, setAnalysisType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   const periodLabel = useMemo(() => {
     if (periodType === 'MONTH') {
@@ -64,6 +65,14 @@ export default function AnalysisScreen({ onNavigate }: AnalysisScreenProps) {
     const items = Object.values(categoryMap).sort((a, b) => b.amount - a.amount);
     return { items, total };
   }, [filteredData]);
+
+  const categoryDetails = useMemo(() => {
+    if (!selectedCategoryId) return null;
+    const cat = DEFAULT_CATEGORIES.find(c => c.id === selectedCategoryId);
+    const txs = filteredData.filter(tx => tx.categoryId === selectedCategoryId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return { cat, txs };
+  }, [selectedCategoryId, filteredData]);
 
   // Calculate average daily based on period
   const averageDaily = useMemo(() => {
@@ -182,65 +191,136 @@ export default function AnalysisScreen({ onNavigate }: AnalysisScreenProps) {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Pie Chart Section */}
-        <View style={styles.chartArea}>
-          <View style={styles.chartWrapper}>
-            <Svg height="180" width="180" viewBox="0 0 200 200">
-              <G rotation="-90" origin="100, 100">
-                {renderPieChart()}
-                {/* Donut hole */}
-                <Circle cx="100" cy="100" r="40" fill="#000" />
-              </G>
-            </Svg>
-          </View>
-
-          {/* Legend */}
-          <View style={styles.legend}>
-            {stats.items.slice(0, 6).map((item, i) => (
-              <View key={i} style={styles.legendItem}>
-                <View style={[styles.dot, { backgroundColor: item.color }]} />
-                <Text style={styles.legendText} numberOfLines={1}>{item.name}</Text>
+        {selectedCategoryId && categoryDetails ? (
+          /* Detail View */
+          <View>
+            <View style={styles.detailHeader}>
+              <TouchableOpacity style={styles.backBtn} onPress={() => setSelectedCategoryId(null)}>
+                <Ionicons name="chevron-back" size={24} color="#FF9500" />
+                <Text style={styles.backText}>返回</Text>
+              </TouchableOpacity>
+              <View style={styles.detailTitleInfo}>
+                <View style={[styles.iconBox, { backgroundColor: categoryDetails.cat?.color }]}>
+                  <Ionicons name={categoryDetails.cat?.icon as any} size={16} color="#FFF" />
+                </View>
+                <Text style={styles.detailTitle}>{categoryDetails.cat?.name}</Text>
               </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Summary Info */}
-        <View style={styles.summaryInfo}>
-          <Text style={styles.summaryTitle}>
-            合計: <Text style={styles.summaryValue}>{stats.total.toLocaleString()}</Text>
-          </Text>
-          <Text style={styles.summaryTitle}>
-            平均每天: <Text style={styles.summaryValue}>{averageDaily.toLocaleString()}</Text>
-          </Text>
-        </View>
-
-        {/* List Header */}
-        <View style={styles.listHeader}>
-          <Text style={styles.listHeaderText}>#</Text>
-          <Text style={[styles.listHeaderText, { flex: 1, marginLeft: 25 }]}>類別</Text>
-          <Text style={[styles.listHeaderText, { width: 100, textAlign: 'right' }]}>金額</Text>
-          <Text style={[styles.listHeaderText, { width: 80, textAlign: 'right' }]}>比例</Text>
-        </View>
-
-        {/* Statistics List */}
-        {stats.items.map((item, index) => (
-          <View key={index} style={styles.statRow}>
-            <Text style={styles.rankText}>{index + 1}</Text>
-            <View style={styles.categoryInfo}>
-              <View style={[styles.iconBox, { backgroundColor: item.color }]}>
-                <Ionicons name={item.icon as any} size={16} color="#FFF" />
-              </View>
-              <Text style={styles.categoryName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.detailTotal}>
+                ${stats.items.find(i => i.name === categoryDetails.cat?.name)?.amount.toLocaleString()}
+              </Text>
             </View>
-            <Text style={[styles.amountText, { color: item.color }]}>
-              {item.amount.toLocaleString()}
-            </Text>
-            <Text style={[styles.percentageText, { color: item.color }]}>
-              {stats.total > 0 ? ((item.amount / stats.total) * 100).toFixed(2) : '0.00'}%
-            </Text>
+
+            {categoryDetails.txs.map((tx, idx) => {
+              const showMonthHeader = idx === 0 ||
+                new Date(tx.date).getMonth() !== new Date(categoryDetails.txs[idx - 1].date).getMonth();
+              const txDate = new Date(tx.date);
+
+              return (
+                <View key={tx.id}>
+                  {showMonthHeader && (
+                    <View style={styles.monthHeader}>
+                      <Text style={styles.monthHeaderText}>
+                        {txDate.getFullYear()}年{txDate.getMonth() + 1}月
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.detailRow}>
+                    <View style={styles.detailDateBox}>
+                      <Text style={styles.detailDateDay}>{txDate.getDate()}</Text>
+                      <Text style={styles.detailDateMonth}>{txDate.getMonth() + 1}月</Text>
+                    </View>
+                    <View style={styles.detailContent}>
+                      <Text style={styles.detailNote}>{tx.note || '無備註'}</Text>
+                      <Text style={styles.detailSubText}>
+                        {txDate.getFullYear()}/{txDate.getMonth() + 1}/{txDate.getDate()}
+                      </Text>
+                    </View>
+                    <Text style={[styles.detailAmount, { color: categoryDetails.cat?.color }]}>
+                      {tx.amount.toLocaleString()}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
           </View>
-        ))}
+        ) : (
+          /* Summary View */
+          <>
+            {/* Pie Chart Section */}
+            <View style={styles.chartArea}>
+              <View style={styles.chartWrapper}>
+                <Svg height="180" width="180" viewBox="0 0 200 200">
+                  <G rotation="-90" origin="100, 100">
+                    {renderPieChart()}
+                    {/* Donut hole */}
+                    <Circle cx="100" cy="100" r="40" fill="#000" />
+                  </G>
+                </Svg>
+              </View>
+
+              {/* Legend */}
+              <View style={styles.legend}>
+                {stats.items.slice(0, 6).map((item, i) => {
+                  const catId = DEFAULT_CATEGORIES.find(c => c.name === item.name)?.id;
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      style={styles.legendItem}
+                      onPress={() => catId && setSelectedCategoryId(catId)}
+                    >
+                      <View style={[styles.dot, { backgroundColor: item.color }]} />
+                      <Text style={styles.legendText} numberOfLines={1}>{item.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Summary Info */}
+            <View style={styles.summaryInfo}>
+              <Text style={styles.summaryTitle}>
+                合計: <Text style={styles.summaryValue}>{stats.total.toLocaleString()}</Text>
+              </Text>
+              <Text style={styles.summaryTitle}>
+                平均每天: <Text style={styles.summaryValue}>{averageDaily.toLocaleString()}</Text>
+              </Text>
+            </View>
+
+            {/* List Header */}
+            <View style={styles.listHeader}>
+              <Text style={styles.listHeaderText}>#</Text>
+              <Text style={[styles.listHeaderText, { flex: 1, marginLeft: 25 }]}>類別</Text>
+              <Text style={[styles.listHeaderText, { width: 100, textAlign: 'right' }]}>金額</Text>
+              <Text style={[styles.listHeaderText, { width: 80, textAlign: 'right' }]}>比例</Text>
+            </View>
+
+            {/* Statistics List */}
+            {stats.items.map((item, index) => {
+              const catId = DEFAULT_CATEGORIES.find(c => c.name === item.name)?.id;
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.statRow}
+                  onPress={() => catId && setSelectedCategoryId(catId)}
+                >
+                  <Text style={styles.rankText}>{index + 1}</Text>
+                  <View style={styles.categoryInfo}>
+                    <View style={[styles.iconBox, { backgroundColor: item.color }]}>
+                      <Ionicons name={item.icon as any} size={16} color="#FFF" />
+                    </View>
+                    <Text style={styles.categoryName} numberOfLines={1}>{item.name}</Text>
+                  </View>
+                  <Text style={[styles.amountText, { color: item.color }]}>
+                    {item.amount.toLocaleString()}
+                  </Text>
+                  <Text style={[styles.percentageText, { color: item.color }]}>
+                    {stats.total > 0 ? ((item.amount / stats.total) * 100).toFixed(2) : '0.00'}%
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -385,4 +465,22 @@ const styles = StyleSheet.create({
   addBtn: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', marginTop: -12 },
   addIconBg: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#FF9500', justifyContent: 'center', alignItems: 'center', marginBottom: 4, elevation: 8, shadowColor: '#FF9500', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 6 },
   navLabel: { fontSize: 10, color: '#888', marginTop: 2 },
+
+  // Detail View Styles
+  detailHeader: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 0.5, borderBottomColor: '#111' },
+  backBtn: { flexDirection: 'row', alignItems: 'center', width: 80 },
+  backText: { color: '#FF9500', fontSize: 16, marginLeft: -5 },
+  detailTitleInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  detailTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginLeft: 10 },
+  detailTotal: { color: '#FFF', fontSize: 18, fontWeight: 'bold', width: 80, textAlign: 'right' },
+  monthHeader: { backgroundColor: '#0A0A0A', paddingHorizontal: 20, paddingVertical: 10, borderTopWidth: 0.5, borderTopColor: '#1A1A1A' },
+  monthHeaderText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  detailRow: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 0.5, borderBottomColor: '#050505' },
+  detailDateBox: { alignItems: 'center', width: 40 },
+  detailDateDay: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  detailDateMonth: { color: '#666', fontSize: 10 },
+  detailContent: { flex: 1, marginLeft: 20 },
+  detailNote: { color: '#FFF', fontSize: 16 },
+  detailSubText: { color: '#444', fontSize: 12, marginTop: 4 },
+  detailAmount: { fontSize: 18, fontWeight: 'bold' },
 });
