@@ -23,9 +23,15 @@ interface AddTransactionModalProps {
     date: string;
     note: string;
   }) => void;
+  initialDate?: string;
 }
 
-export default function AddTransactionModal({ visible, onClose, onSave }: AddTransactionModalProps) {
+export default function AddTransactionModal({
+  visible,
+  onClose,
+  onSave,
+  initialDate
+}: AddTransactionModalProps) {
   const [type, setType] = useState<TransactionType>('EXPENSE');
   const [displayValue, setDisplayValue] = useState('0');
   const [expression, setExpression] = useState('');
@@ -33,7 +39,7 @@ export default function AddTransactionModal({ visible, onClose, onSave }: AddTra
 
   const [categoryId, setCategoryId] = useState('');
   const [note, setNote] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(initialDate || new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     if (visible) {
@@ -41,10 +47,11 @@ export default function AddTransactionModal({ visible, onClose, onSave }: AddTra
       setExpression('');
       setIsResultShown(false);
       setNote('');
+      setDate(initialDate || new Date().toISOString().split('T')[0]);
       const firstCat = DEFAULT_CATEGORIES.find(c => c.type === type);
       if (firstCat) setCategoryId(firstCat.id);
     }
-  }, [visible, type]);
+  }, [visible, type, initialDate]);
 
   const evalExpression = (expr: string) => {
     try {
@@ -267,6 +274,6 @@ const styles = StyleSheet.create({
   noteInput: { backgroundColor: '#111', color: '#FFF', padding: 12, borderRadius: 10, fontSize: 16 },
   keyboard: { backgroundColor: '#1c1c1c', paddingBottom: 20 },
   keyRow: { flexDirection: 'row' },
-  key: { flex: 1, height: 60, justifyContent: 'center', alignItems: 'center', borderWeight: 0.5, borderColor: '#333', borderStyle: 'solid', borderWidth: 0.2 },
+  key: { flex: 1, height: 60, justifyContent: 'center', alignItems: 'center', borderWidth: 0.5, borderColor: '#333', borderStyle: 'solid' },
   keyText: { color: '#FFF', fontSize: 20 },
 });

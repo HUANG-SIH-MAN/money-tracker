@@ -15,6 +15,6 @@ export interface Transaction {
   categoryId: string;
   note: string;
   date: string; // ISO format string
-  isRecurring: boolean;
+  isRecurring?: boolean;
   recurringFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
 }
