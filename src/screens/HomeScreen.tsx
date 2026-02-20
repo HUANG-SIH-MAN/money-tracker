@@ -6,209 +6,149 @@ import {
   SafeAreaView,
   FlatList,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTransactions } from '../context/TransactionContext';
 import { DEFAULT_CATEGORIES } from '../constants/categories';
 import AddTransactionModal from '../components/AddTransactionModal';
 
 export default function HomeScreen() {
-  const { transactions, addTransaction, getDailyTotal } = useTransactions();
+  const { transactions, addTransaction, isLoading } = useTransactions();
   const [modalVisible, setModalVisible] = useState(false);
-
-  const today = new Date().toISOString().split('T')[0];
-  const todayExpense = getDailyTotal(today, 'EXPENSE');
-  const todayIncome = getDailyTotal(today, 'INCOME');
 
   const getCategory = (id: string) => {
     return DEFAULT_CATEGORIES.find(c => c.id === id);
   };
 
+  const totals = transactions.reduce((acc, tx) => {
+    if (tx.type === 'EXPENSE') acc.expense += tx.amount;
+    else acc.income += tx.amount;
+    return acc;
+  }, { expense: 0, income: 0 });
+
   const renderItem = ({ item }: { item: any }) => {
     const category = getCategory(item.categoryId);
     return (
       <View style={styles.transactionItem}>
-        <View style={[styles.iconContainer, { backgroundColor: category?.color + '20' }]}>
-          <Ionicons name={category?.icon as any} size={24} color={category?.color} />
+        <View style={styles.itemDateContainer}>
+          <Text style={styles.itemDate}>{item.date.split('-').slice(1).join('/')}</Text>
         </View>
-        <View style={styles.transactionInfo}>
-          <Text style={styles.categoryTitle}>{category?.name}</Text>
-          {item.note ? <Text style={styles.note}>{item.note}</Text> : null}
+        <View style={[styles.iconBox, { backgroundColor: category?.color + '22' || '#333' }]}>
+          <Ionicons name={category?.icon as any || 'help'} size={20} color={category?.color || '#FFF'} />
         </View>
-        <View style={styles.amountContainer}>
-          <Text style={[
-            styles.amount,
-            { color: item.type === 'INCOME' ? '#34C759' : '#FFFFFF' }
-          ]}>
-            {item.type === 'INCOME' ? '+' : ''}{item.amount}
+        <View style={styles.itemMain}>
+          <View style={styles.itemHeader}>
+            <Text style={styles.itemCategory}>{category?.name || '未知'}</Text>
+            <Text style={[styles.itemAmount, item.type === 'INCOME' ? styles.incomeText : styles.expenseText]}>
+              {item.type === 'INCOME' ? '+' : '-'}{item.amount.toLocaleString()}
+            </Text>
+          </View>
+          <Text style={styles.itemNote} numberOfLines={1}>
+            {item.note || '無備註'}
           </Text>
         </View>
       </View>
     );
   };
 
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color="#FF9500" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Header Summary */}
+      {/* Simple Header */}
       <View style={styles.header}>
-        <Text style={styles.dateText}>{new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' })}</Text>
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>今日支出</Text>
-            <Text style={styles.summaryValueExpense}>{todayExpense}</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>今日收入</Text>
-            <Text style={styles.summaryValueIncome}>{todayIncome}</Text>
-          </View>
+        <Text style={styles.headerTitle}>我的記帳本</Text>
+        <TouchableOpacity style={styles.headerIcon}>
+          <Ionicons name="search" size={24} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Summary Card */}
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>本月支出</Text>
+          <Text style={styles.summaryValue}>${totals.expense.toLocaleString()}</Text>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>本月收入</Text>
+          <Text style={[styles.summaryValue, { color: '#66BB6A' }]}>${totals.income.toLocaleString()}</Text>
         </View>
       </View>
 
       {/* Transaction List */}
-      <View style={styles.listContainer}>
-        {transactions.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={64} color="#333" />
-            <Text style={styles.emptyText}>今天還沒有記帳喔！</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={transactions}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContent}
-          />
-        )}
+      <View style={styles.listHeader}>
+        <Text style={styles.listTitle}>最近紀錄</Text>
+        <Text style={styles.txCount}>共 {transactions.length} 筆</Text>
       </View>
 
-      {/* Floating Action Button */}
+      <FlatList
+        data={transactions}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="clipboard-text-outline" size={60} color="#222" />
+            <Text style={styles.emptyText}>點擊下方按鈕開始記帳吧！</Text>
+          </View>
+        }
+      />
+
+      {/* Add Button */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => setModalVisible(true)}
+        activeOpacity={0.8}
       >
-        <Ionicons name="add" size={32} color="#FFF" />
+        <Ionicons name="add" size={36} color="#000" />
       </TouchableOpacity>
 
       <AddTransactionModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        onSave={(data) => {
-          addTransaction(data);
-        }}
+        onSave={(data) => addTransaction(data)}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  header: {
-    padding: 20,
-    backgroundColor: '#1C1C1E',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  dateText: {
-    color: '#EBEBF599',
-    fontSize: 16,
-    marginBottom: 10,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryLabel: {
-    color: '#8E8E93',
-    fontSize: 14,
-    marginBottom: 5,
-  },
-  summaryValueExpense: {
-    color: '#FF453A',
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  summaryValueIncome: {
-    color: '#32D74B',
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  listContainer: {
-    flex: 1,
-    paddingHorizontal: 15,
-  },
-  listContent: {
-    paddingVertical: 20,
-  },
-  transactionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1C1C1E',
-    padding: 15,
-    borderRadius: 15,
-    marginBottom: 10,
-  },
-  iconContainer: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  transactionInfo: {
-    flex: 1,
-    marginLeft: 15,
-  },
-  categoryTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  note: {
-    color: '#8E8E93',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  amountContainer: {
-    alignItems: 'flex-end',
-  },
-  amount: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    opacity: 0.5,
-  },
-  emptyText: {
-    color: '#FFFFFF',
-    marginTop: 10,
-    fontSize: 16,
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 30,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FF9500', // Matches the orange '+' in the screenshot
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
+  container: { flex: 1, backgroundColor: '#000' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20 },
+  headerTitle: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
+  headerIcon: { padding: 5 },
+  summaryCard: { flexDirection: 'row', backgroundColor: '#111', margin: 15, borderRadius: 15, padding: 20, alignItems: 'center' },
+  summaryItem: { flex: 1, alignItems: 'center' },
+  summaryLabel: { color: '#888', fontSize: 12, marginBottom: 5 },
+  summaryValue: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  divider: { width: 1, height: 30, backgroundColor: '#222' },
+  listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 10 },
+  listTitle: { color: '#888', fontSize: 14 },
+  txCount: { color: '#444', fontSize: 12 },
+  listContent: { paddingBottom: 100 },
+  transactionItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0A0A0A', padding: 15, borderBottomWidth: 0.5, borderBottomColor: '#111' },
+  itemDateContainer: { width: 45 },
+  itemDate: { color: '#444', fontSize: 12 },
+  iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginHorizontal: 10 },
+  itemMain: { flex: 1 },
+  itemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  itemCategory: { color: '#FFF', fontSize: 16, fontWeight: '500' },
+  itemAmount: { fontSize: 17, fontWeight: 'bold' },
+  expenseText: { color: '#FFF' },
+  incomeText: { color: '#66BB6A' },
+  itemNote: { color: '#666', fontSize: 13, marginTop: 4 },
+  emptyContainer: { alignItems: 'center', marginTop: 100 },
+  emptyText: { color: '#333', marginTop: 15 },
+  fab: { position: 'absolute', right: 25, bottom: 25, width: 65, height: 65, borderRadius: 32.5, backgroundColor: '#FF9500', justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4.65 },
 });
