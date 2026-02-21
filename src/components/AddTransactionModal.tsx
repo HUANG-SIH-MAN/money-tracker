@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { TransactionType } from '../types';
-import { DEFAULT_CATEGORIES } from '../constants/categories';
+import { useTransactions } from '../context/TransactionContext';
 
 interface AddTransactionModalProps {
   visible: boolean;
@@ -32,6 +32,7 @@ export default function AddTransactionModal({
   onSave,
   initialDate
 }: AddTransactionModalProps) {
+  const { categories } = useTransactions();
   const [type, setType] = useState<TransactionType>('EXPENSE');
   const [displayValue, setDisplayValue] = useState('0');
   const [expression, setExpression] = useState('');
@@ -48,10 +49,10 @@ export default function AddTransactionModal({
       setIsResultShown(false);
       setNote('');
       setDate(initialDate || new Date().toISOString().split('T')[0]);
-      const firstCat = DEFAULT_CATEGORIES.find(c => c.type === type);
+      const firstCat = categories.find(c => c.type === type);
       if (firstCat) setCategoryId(firstCat.id);
     }
-  }, [visible, type, initialDate]);
+  }, [visible, type, initialDate, categories]);
 
   const evalExpression = (expr: string) => {
     try {
@@ -117,7 +118,7 @@ export default function AddTransactionModal({
 
   const handleSave = () => {
     const finalAmount = evalExpression(expression.replace(/−/g, '-'));
-    if (finalAmount > 0) {
+    if (finalAmount > 0 && categoryId) {
       onSave({
         amount: finalAmount,
         type,
@@ -129,7 +130,7 @@ export default function AddTransactionModal({
     }
   };
 
-  const selectedCategory = DEFAULT_CATEGORIES.find(c => c.id === categoryId);
+  const selectedCategory = categories.find(c => c.id === categoryId);
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false}>
@@ -170,7 +171,7 @@ export default function AddTransactionModal({
           <View style={styles.inputRow}>
             <Text style={styles.label}>類別</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catList}>
-              {DEFAULT_CATEGORIES.filter(c => c.type === type).map(cat => (
+              {categories.filter(c => c.type === type).map(cat => (
                 <TouchableOpacity
                   key={cat.id}
                   style={[styles.catIcon, categoryId === cat.id && styles.activeCatIcon]}

@@ -10,17 +10,16 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTransactions } from '../context/TransactionContext';
-import { DEFAULT_CATEGORIES } from '../constants/categories';
 import Svg, { G, Path, Circle } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
 interface AnalysisScreenProps {
-  onNavigate: (screen: 'HOME' | 'ANALYSIS') => void;
+  onNavigate: (screen: 'HOME' | 'ANALYSIS' | 'SETTINGS' | 'RECURRING' | 'CATEGORIES', params?: any) => void;
 }
 
 export default function AnalysisScreen({ onNavigate }: AnalysisScreenProps) {
-  const { transactions } = useTransactions();
+  const { transactions, categories } = useTransactions();
   const [periodType, setPeriodType] = useState<'MONTH' | 'YEAR'>('MONTH');
   const [analysisType, setAnalysisType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -52,7 +51,7 @@ export default function AnalysisScreen({ onNavigate }: AnalysisScreenProps) {
     let total = 0;
 
     filteredData.forEach(tx => {
-      const cat = DEFAULT_CATEGORIES.find(c => c.id === tx.categoryId);
+      const cat = categories.find(c => c.id === tx.categoryId);
       if (cat) {
         if (!categoryMap[cat.id]) {
           categoryMap[cat.id] = { amount: 0, name: cat.name, icon: cat.icon, color: cat.color };
@@ -62,17 +61,21 @@ export default function AnalysisScreen({ onNavigate }: AnalysisScreenProps) {
       }
     });
 
-    const items = Object.values(categoryMap).sort((a, b) => b.amount - a.amount);
-    return { items, total };
-  }, [filteredData]);
+    return {
+      total,
+      items: Object.entries(categoryMap)
+        .sort((a, b) => b[1].amount - a[1].amount)
+        .map(([id, info]) => ({ id, ...info, percent: total > 0 ? (info.amount / total) * 100 : 0 }))
+    };
+  }, [filteredData, categories]);
 
   const categoryDetails = useMemo(() => {
     if (!selectedCategoryId) return null;
-    const cat = DEFAULT_CATEGORIES.find(c => c.id === selectedCategoryId);
+    const cat = categories.find(c => c.id === selectedCategoryId);
     const txs = filteredData.filter(tx => tx.categoryId === selectedCategoryId)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return { cat, txs };
-  }, [selectedCategoryId, filteredData]);
+  }, [selectedCategoryId, filteredData, categories]);
 
   // Calculate average daily based on period
   const averageDaily = useMemo(() => {
@@ -261,12 +264,11 @@ export default function AnalysisScreen({ onNavigate }: AnalysisScreenProps) {
               {/* Legend */}
               <View style={styles.legend}>
                 {stats.items.slice(0, 6).map((item, i) => {
-                  const catId = DEFAULT_CATEGORIES.find(c => c.name === item.name)?.id;
                   return (
                     <TouchableOpacity
                       key={i}
                       style={styles.legendItem}
-                      onPress={() => catId && setSelectedCategoryId(catId)}
+                      onPress={() => setSelectedCategoryId(item.id)}
                     >
                       <View style={[styles.dot, { backgroundColor: item.color }]} />
                       <Text style={styles.legendText} numberOfLines={1}>{item.name}</Text>
@@ -296,12 +298,11 @@ export default function AnalysisScreen({ onNavigate }: AnalysisScreenProps) {
 
             {/* Statistics List */}
             {stats.items.map((item, index) => {
-              const catId = DEFAULT_CATEGORIES.find(c => c.name === item.name)?.id;
               return (
                 <TouchableOpacity
                   key={index}
                   style={styles.statRow}
-                  onPress={() => catId && setSelectedCategoryId(catId)}
+                  onPress={() => setSelectedCategoryId(item.id)}
                 >
                   <Text style={styles.rankText}>{index + 1}</Text>
                   <View style={styles.categoryInfo}>
@@ -342,6 +343,11 @@ export default function AnalysisScreen({ onNavigate }: AnalysisScreenProps) {
         <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('ANALYSIS')}>
           <Ionicons name="pie-chart" size={24} color="#FF9500" />
           <Text style={[styles.navLabel, { color: '#FF9500' }]}>分析</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('SETTINGS')}>
+          <Ionicons name="settings-outline" size={24} color="#888" />
+          <Text style={styles.navLabel}>設定</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

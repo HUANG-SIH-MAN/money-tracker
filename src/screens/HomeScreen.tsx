@@ -11,7 +11,6 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTransactions } from '../context/TransactionContext';
-import { DEFAULT_CATEGORIES } from '../constants/categories';
 import AddTransactionModal from '../components/AddTransactionModal';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 
@@ -25,8 +24,8 @@ LocaleConfig.locales['zh'] = {
 };
 LocaleConfig.defaultLocale = 'zh';
 
-export default function HomeScreen({ onNavigate }: { onNavigate: (screen: 'HOME' | 'ANALYSIS') => void }) {
-  const { transactions, addTransaction, isLoading } = useTransactions();
+export default function HomeScreen({ onNavigate }: { onNavigate: (screen: 'HOME' | 'ANALYSIS' | 'SETTINGS' | 'RECURRING' | 'CATEGORIES', params?: any) => void }) {
+  const { transactions, addTransaction, categories, isLoading } = useTransactions();
   const [modalVisible, setModalVisible] = useState(false);
 
   // Use local-safe date initialization
@@ -36,7 +35,14 @@ export default function HomeScreen({ onNavigate }: { onNavigate: (screen: 'HOME'
   );
 
   const getCategory = (id: string) => {
-    return DEFAULT_CATEGORIES.find(c => c.id === id);
+    // 1. Try finding by ID in dynamic categories
+    let cat = categories.find(c => c.id === id);
+    if (cat) return cat;
+
+    // 2. Fallback: Try finding it in DEFAULT_CATEGORIES if ID matches (legacy IDs)
+    // We already have them in 'categories' by default, so this might the same, 
+    // but just in case 'id' is a name or something, we can be more flexible.
+    return categories.find(c => c.name === id);
   };
 
   // Helper to format local YYYY-MM-DD
@@ -60,6 +66,14 @@ export default function HomeScreen({ onNavigate }: { onNavigate: (screen: 'HOME'
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tx => tx.date === selectedDate);
   }, [transactions, selectedDate]);
+
+  const dailyTotals = useMemo(() => {
+    return filteredTransactions.reduce((acc, tx) => {
+      if (tx.type === 'EXPENSE') acc.expense += tx.amount;
+      else acc.income += tx.amount;
+      return acc;
+    }, { expense: 0, income: 0 });
+  }, [filteredTransactions]);
 
   // Calendar marking
   const markedDates = useMemo(() => {
@@ -169,7 +183,19 @@ export default function HomeScreen({ onNavigate }: { onNavigate: (screen: 'HOME'
 
       {/* Daily List Header */}
       <View style={styles.listHeader}>
-        <Text style={styles.listTitle}>{selectedDate.replace(/-/g, '/')} 的紀錄</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={styles.listTitle}>{selectedDate.replace(/-/g, '/')} 的紀錄</Text>
+          {dailyTotals.expense > 0 && (
+            <Text style={[styles.dailyTotalText, { color: '#FF453A', marginLeft: 10 }]}>
+              支出: ${dailyTotals.expense.toLocaleString()}
+            </Text>
+          )}
+          {dailyTotals.income > 0 && (
+            <Text style={[styles.dailyTotalText, { color: '#34C759', marginLeft: 10 }]}>
+              收入: ${dailyTotals.income.toLocaleString()}
+            </Text>
+          )}
+        </View>
         <Text style={styles.txCount}>共 {filteredTransactions.length} 筆</Text>
       </View>
 
@@ -204,6 +230,11 @@ export default function HomeScreen({ onNavigate }: { onNavigate: (screen: 'HOME'
           <Ionicons name="pie-chart" size={24} color="#888" />
           <Text style={styles.navLabel}>分析</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.navItem} onPress={() => onNavigate('SETTINGS')}>
+          <Ionicons name="settings-outline" size={24} color="#888" />
+          <Text style={styles.navLabel}>設定</Text>
+        </TouchableOpacity>
       </View>
 
       <AddTransactionModal
@@ -229,6 +260,7 @@ const styles = StyleSheet.create({
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 15, marginBottom: 10 },
   listTitle: { color: '#888', fontSize: 14 },
   txCount: { color: '#444', fontSize: 12 },
+  dailyTotalText: { fontSize: 12, fontWeight: '600' },
   listContent: { paddingBottom: 100 },
   transactionItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0A0A0A', padding: 15, borderBottomWidth: 0.5, borderBottomColor: '#111' },
   iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 15 },

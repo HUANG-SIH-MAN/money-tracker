@@ -18,3 +18,12 @@ export interface Transaction {
   isRecurring?: boolean;
   recurringFrequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
 }
+export interface RecurringTransaction {
+  id: string;
+  amount: number;
+  type: TransactionType;
+  categoryId: string;
+  note: string;
+  dayOfMonth: number; // 1-31
+  frequency: 'MONTHLY';
+}
